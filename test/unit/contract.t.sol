@@ -22,7 +22,9 @@ contract MarketTest is Test {
 
     function setUp() public {
         Deploy deploy = new Deploy();
+
         (market, config, priceFeeds, tokenaddresses, coin) = deploy.run();
+
         user = makeAddr("user");
         vm.deal(user, 2000e18);
         WbtcMock(config.WbtcAddress).mint(user, 20e18);
@@ -44,11 +46,28 @@ contract MarketTest is Test {
     }
 
     function testcalculateAmountToMint() public {
-        assert(market.calculateAmountToMint(6000e18) == 4500);
+        assert(market.calculateMaxAmountToMint(6000e18) == 4500);
     }
-    // function testDepositCollateralWorks() public {
-    //     vm.startPrank(user);
-    //     IERC20(config.WethAddress).approve(address(market), 2e18);
-    //     market.DepositCollateralAndMintTokens(config.WethAddress, 2e18);
-    // }
+
+    function testDepositCollateralWorks() public {
+        vm.startPrank(user);
+        IERC20(config.WethAddress).approve(address(market), 2e18);
+        market.DepositCollateralAndMintTokens(
+            config.WethAddress,
+            2e18,
+            config.WethpriceFeed
+        );
+        assert(coin.balanceOf(user) > 0);
+    }
+
+    function testCalculateHealthFactor() public {
+        vm.startPrank(user);
+        IERC20(config.WethAddress).approve(address(market), 2e18);
+        market.DepositCollateralAndMintTokens(
+            config.WethAddress,
+            2e18,
+            config.WethpriceFeed
+        );
+        assert(market.calculateHealthFactor(user) == 1);
+    }
 }

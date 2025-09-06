@@ -5,6 +5,7 @@ pragma solidity ^0.8.20;
 import {PriceConverter} from "./library/PriceFeed.sol";
 import {DefiCoin} from "./DefiCoin.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {console} from "forge-std/console.sol";
 
 contract Market {
     //Errors
@@ -17,6 +18,7 @@ contract Market {
     uint256 constant LTV = 75;
     uint256 constant PERCENT = 100;
     mapping(address => mapping(address => uint256)) s_senderToCollateral;
+    mapping(address => uint256) s_mintedDefi;
     mapping(address => address) s_tokenToPriceFeed;
     DefiCoin internal immutable deficoin;
     //Modifiers
@@ -29,14 +31,27 @@ contract Market {
         }
         _;
     }
+    modifier _isPriceFeedAndCollateralLengthEqual(
+        address[] memory _priceFeeds,
+        address[] memory _collateralContracts
+    ) {
+        require(
+            _priceFeeds.length == _collateralContracts.length,
+            "Collateral And PriceFeeds should be equal"
+        );
+        _;
+    }
 
     constructor(
         address[] memory _priceFeeds,
         address[] memory _collateralContracts,
         DefiCoin _defiCoin
-    ) _isAllowedToken(_priceFeeds, _collateralContracts) {
+    )
+        _isAllowedToken(_priceFeeds, _collateralContracts)
+        _isPriceFeedAndCollateralLengthEqual(_priceFeeds, _collateralContracts)
+    {
         s_priceFeeds = _priceFeeds;
-        _collateralContracts = _collateralContracts;
+        s_collateralContracts = _collateralContracts;
         for (uint i = 0; i < _priceFeeds.length; i++) {
             s_tokenToPriceFeed[_collateralContracts[i]] = _priceFeeds[i];
         }
@@ -79,16 +94,42 @@ contract Market {
             _priceFeed,
             _amount
         );
-        uint256 toMint = calculateAmountToMint(_price);
-
+        uint256 toMint = calculateMaxAmountToMint(_price);
+        s_mintedDefi[sender] += toMint;
         deficoin.mint(sender, toMint);
     }
 
-    function redeemCollateralAndBurnTokens() public {}
+    function redeemCollateralAndBurnTokens(
+        address _collateralAddress,
+        address _tokenPriceFeedAddress,
+        address _user,
+        uint256 _amount
+    ) public {
+        burnTokens(_user, _amount);
+        redeemCollateral(_user, _amount, _collateralAddress);
+    }
 
-    function redeemCollateral() public {}
+    function redeemCollateral(
+        address _user,
+        uint256 _amount,
+        address _collateralAddress
+    ) public {
+        require(
+            s_senderToCollateral[_user][_collateralAddress] >= _amount,
+            "Not Enough Collateral"
+        );
+        s_senderToCollateral[_user][_collateralAddress] -= _amount;
+        bool success = IERC20(_collateralAddress).transferFrom(
+            address(this),
+            _user,
+            _amount
+        );
+        require(success, "Couldnt Transfer Collateral Back");
+    }
 
-    function burnTokens() public {}
+    function burnTokens(address _user, uint256 _amount) public {
+        deficoin.burn(_user, _amount);
+    }
 
     function getMarketPriceOfToken(
         address _tokenAddress,
@@ -98,9 +139,38 @@ contract Market {
         return _amount.ConvertToUsdt(_priceFeedAddress);
     }
 
-    function calculateAmountToMint(
+    function calculateMaxAmountToMint(
         uint256 _amount
     ) public pure returns (uint256) {
         return ((_amount / DIVISOR) * LTV) / PERCENT;
+    }
+
+    function calculateHealthFactor(
+        address _user
+    ) public view returns (uint256) {
+        uint256 totalCollateral = calculateTotalCollateralInUSD(_user);
+        uint256 collateral = calculateMaxAmountToMint(totalCollateral);
+        uint256 healthFactor = collateral / s_mintedDefi[_user];
+        return healthFactor;
+    }
+
+    function calculateTotalCollateralInUSD(
+        address _user
+    ) public view returns (uint256 totalCollateral) {
+        for (uint i = 0; i < s_priceFeeds.length; i++) {
+            totalCollateral += getMarketPriceOfToken(
+                s_collateralContracts[i],
+                s_priceFeeds[i],
+                s_senderToCollateral[_user][s_collateralContracts[i]]
+            );
+        }
+    }
+
+    function liquidate(
+        address _toLiquidate,
+        address _collateralAddress
+    ) public {
+        uint256 healthFactor = calculateHealthFactor(_toLiquidate);
+        require(healthFactor < 1, "Cant Liquidate Healthy User");
     }
 }
