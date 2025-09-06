@@ -14,7 +14,16 @@ contract Deploy is Script {
     address[] public priceFeeds;
     address[] public tokenaddresses;
 
-    function setUp() public {
+    function run()
+        public
+        returns (
+            Market,
+            HelperConfig.NetworkConfig memory,
+            address[] memory,
+            address[] memory,
+            DefiCoin
+        )
+    {
         hconfig = new HelperConfig();
         config = hconfig.getChainConfig(block.chainid);
         DefiCoin defiCoin = new DefiCoin();
@@ -22,5 +31,6 @@ contract Deploy is Script {
         tokenaddresses = [config.WethAddress, config.WbtcAddress];
         market = new Market(priceFeeds, tokenaddresses, defiCoin);
         defiCoin.transferOwnership(address(market));
+        return (market, config, priceFeeds, tokenaddresses, defiCoin);
     }
 }

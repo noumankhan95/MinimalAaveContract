@@ -46,10 +46,12 @@ contract Market {
     //Core Logic
 
     function DepositCollateralAndMintTokens(
-        address _tokenCollateral
+        address _tokenCollateral,
+        uint256 _amount,
+        address _priceFeed
     ) public payable {
-        depositCollateral(msg.value, msg.sender, _tokenCollateral);
-        MintTokens(msg.value, msg.sender, _tokenCollateral);
+        depositCollateral(_amount, msg.sender, _tokenCollateral);
+        MintTokens(_amount, msg.sender, _tokenCollateral, _priceFeed);
     }
 
     function depositCollateral(
@@ -69,22 +71,31 @@ contract Market {
     function MintTokens(
         uint256 _amount,
         address sender,
-        address _tokenCollateral
+        address _tokenCollateral,
+        address _priceFeed
     ) internal {
-        uint256 _price = getMarketPriceOfToken(_tokenCollateral, _amount);
+        uint256 _price = getMarketPriceOfToken(
+            _tokenCollateral,
+            _priceFeed,
+            _amount
+        );
         uint256 toMint = calculateAmountToMint(_price);
 
         deficoin.mint(sender, toMint);
     }
 
+    function redeemCollateralAndBurnTokens() public {}
+
+    function redeemCollateral() public {}
+
+    function burnTokens() public {}
+
     function getMarketPriceOfToken(
         address _tokenAddress,
+        address _priceFeedAddress,
         uint256 _amount
-    ) internal returns (uint256) {
-        uint256 _usdtValue = _amount.ConvertToUsdt(_tokenAddress);
-        uint256 _totalAmount = (_amount * _usdtValue) / DIVISOR;
-
-        return _totalAmount;
+    ) public view returns (uint256) {
+        return _amount.ConvertToUsdt(_priceFeedAddress);
     }
 
     function calculateAmountToMint(

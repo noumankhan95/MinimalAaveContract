@@ -4,19 +4,20 @@ import {AggregatorV3Interface} from "lib/chainlink-brownie-contracts/contracts/s
 
 library PriceConverter {
     function getPriceInUSD(
-        uint256 _amount,
+        uint256,
         address _priceFeed
-    ) internal returns (uint256) {
+    ) internal view returns (uint256) {
         (, int256 price, , , ) = AggregatorV3Interface(_priceFeed)
             .latestRoundData();
-
-        return uint256(price * 1e10);
+       
+        return uint256(price);
     }
 
     function ConvertToUsdt(
         uint256 _amount,
         address _priceFeed
-    ) public returns (uint256) {
-        return (getPriceInUSD(_amount, _priceFeed) * _amount) / 1e18;
+    ) public view returns (uint256) {
+        uint256 price = (getPriceInUSD(_amount, _priceFeed) * _amount) / 1e18;
+        return price;
     }
 }
