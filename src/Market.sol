@@ -106,29 +106,27 @@ contract Market {
         uint256 _amount
     ) public {
         burnTokens(_user, _amount);
-        redeemCollateral(_user, _amount, _collateralAddress);
+        redeemCollateral(_user, _user, _amount, _collateralAddress);
     }
 
     function redeemCollateral(
-        address _user,
+        address cfor,
+        address to,
         uint256 _amount,
         address _collateralAddress
     ) public {
         require(
-            s_senderToCollateral[_user][_collateralAddress] >= _amount,
+            s_senderToCollateral[cfor][_collateralAddress] >= _amount,
             "Not Enough Collateral"
         );
-        s_senderToCollateral[_user][_collateralAddress] -= _amount;
-        bool success = IERC20(_collateralAddress).transferFrom(
-            address(this),
-            _user,
-            _amount
-        );
+        s_senderToCollateral[cfor][_collateralAddress] -= _amount;
+        bool success = IERC20(_collateralAddress).transfer(to, _amount);
         require(success, "Couldnt Transfer Collateral Back");
     }
 
     function burnTokens(address _user, uint256 _amount) public {
         deficoin.burn(_user, _amount);
+        s_mintedDefi[_user] -= _amount;
     }
 
     function getMarketPriceOfToken(
@@ -168,9 +166,24 @@ contract Market {
 
     function liquidate(
         address _toLiquidate,
-        address _collateralAddress
+        address _collateralAddress,
+        uint256 _debtToCover
     ) public {
         uint256 healthFactor = calculateHealthFactor(_toLiquidate);
         require(healthFactor < 1, "Cant Liquidate Healthy User");
+        uint256 _amount = _debtToCover.ConvertToUsdt(_collateralAddress);
+        uint256 bonus = ((((_amount / DIVISOR)) / (PERCENT)) * _amount);
+        redeemCollateral(
+            _toLiquidate,
+            msg.sender,
+            _amount + bonus,
+            _collateralAddress
+        );
+        burnTokens(_toLiquidate, s_mintedDefi[_toLiquidate]);
+
+        require(
+            healthFactor > 1,
+            "Liquidation doesnt improve the health factor"
+        );
     }
 }

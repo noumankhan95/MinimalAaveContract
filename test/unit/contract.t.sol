@@ -70,4 +70,6 @@ contract MarketTest is Test {
         );
         assert(market.calculateHealthFactor(user) == 1);
     }
+
+    function testLiquidationWorks() public {}
 }
