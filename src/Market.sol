@@ -101,8 +101,8 @@ contract Market {
             _amount
         );
         uint256 toMint = calculateMaxAmountToMint(_price);
-        s_mintedDefi[sender] += toMint * 1e18;
-        deficoin.mint(sender, toMint * 1e18);
+        s_mintedDefi[sender] += toMint;
+        deficoin.mint(sender, toMint);
     }
 
     function redeemCollateralAndBurnTokens(
@@ -150,7 +150,7 @@ contract Market {
     function calculateMaxAmountToMint(
         uint256 _amount
     ) public pure returns (uint256) {
-        return ((_amount / DIVISOR) * LTV) / PERCENT;
+        return (((_amount / DIVISOR) * LTV) / PERCENT) * 1e18;
     }
 
     function calculateHealthFactor(
@@ -183,7 +183,7 @@ contract Market {
     ) public _isMoreThanZero(_debtToCover) {
         uint256 healthFactor = calculateHealthFactor(_toLiquidate);
         console.log(_debtToCover, "Devt to cover");
-        require(healthFactor <= 1, "HF Should be Less than Zero");
+        require(healthFactor <= 1, "HF Should be More than Zero");
         uint256 _amount = _debtToCover.getPriceInUSD(
             s_tokenToPriceFeed[_collateralAddress]
         );

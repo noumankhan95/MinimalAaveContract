@@ -47,7 +47,7 @@ contract MarketTest is Test {
     }
 
     function testcalculateAmountToMint() public {
-        assert(market.calculateMaxAmountToMint(6000e18) == 4500);
+        assert(market.calculateMaxAmountToMint(6000e18) == 4500e18);
     }
 
     function testDepositCollateralWorks() public {
@@ -71,6 +71,7 @@ contract MarketTest is Test {
             config.WethpriceFeed,
             2e18
         );
+
         assert(market.calculateHealthFactor(user) == 1);
     }
 
@@ -84,7 +85,7 @@ contract MarketTest is Test {
             2e18
         );
 
-        MockV3Aggregator(config.WethpriceFeed).updateAnswer(2000e18);
+        MockV3Aggregator(config.WethpriceFeed).updateAnswer(2000e10);
         vm.warp(block.timestamp + 1);
 
         vm.stopPrank();

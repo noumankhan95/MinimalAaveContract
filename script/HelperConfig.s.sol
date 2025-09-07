@@ -61,11 +61,11 @@ contract HelperConfig is Script {
     function getAnvilEthConfig() internal returns (NetworkConfig memory) {
         MockV3AggregatorTest wethaggregator = new MockV3AggregatorTest(
             10,
-            3000e18
+            3000e10
         );
         MockV3AggregatorTest wbtcaggregator = new MockV3AggregatorTest(
             10,
-            110000e18
+            110000e10
         );
         WethMock weth = new WethMock();
         WbtcMock wbtc = new WbtcMock();

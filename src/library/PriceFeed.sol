@@ -9,8 +9,8 @@ library PriceConverter {
     ) public view returns (uint256) {
         (, int256 price, , , ) = AggregatorV3Interface(_priceFeed)
             .latestRoundData();
-       
-        return uint256(price);
+
+        return uint256(price) * 1e8;
     }
 
     function ConvertToUsdt(
