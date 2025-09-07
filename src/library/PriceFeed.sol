@@ -6,7 +6,7 @@ library PriceConverter {
     function getPriceInUSD(
         uint256,
         address _priceFeed
-    ) internal view returns (uint256) {
+    ) public view returns (uint256) {
         (, int256 price, , , ) = AggregatorV3Interface(_priceFeed)
             .latestRoundData();
        

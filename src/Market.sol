@@ -42,6 +42,11 @@ contract Market {
         _;
     }
 
+    modifier _isMoreThanZero(uint256 _amount) {
+        require(_amount > 0, "Amount Must Be Greater Than Zero");
+        _;
+    }
+
     constructor(
         address[] memory _priceFeeds,
         address[] memory _collateralContracts,
@@ -63,10 +68,11 @@ contract Market {
     function DepositCollateralAndMintTokens(
         address _tokenCollateral,
         uint256 _amount,
-        address _priceFeed
-    ) public payable {
+        address _priceFeed,
+        uint256 _toMint
+    ) public payable _isMoreThanZero(_amount) {
         depositCollateral(_amount, msg.sender, _tokenCollateral);
-        MintTokens(_amount, msg.sender, _tokenCollateral, _priceFeed);
+        MintTokens(_toMint, msg.sender, _tokenCollateral, _priceFeed);
     }
 
     function depositCollateral(
@@ -95,8 +101,8 @@ contract Market {
             _amount
         );
         uint256 toMint = calculateMaxAmountToMint(_price);
-        s_mintedDefi[sender] += toMint;
-        deficoin.mint(sender, toMint);
+        s_mintedDefi[sender] += toMint * 1e18;
+        deficoin.mint(sender, toMint * 1e18);
     }
 
     function redeemCollateralAndBurnTokens(
@@ -115,18 +121,22 @@ contract Market {
         uint256 _amount,
         address _collateralAddress
     ) public {
-        require(
-            s_senderToCollateral[cfor][_collateralAddress] >= _amount,
-            "Not Enough Collateral"
-        );
-        s_senderToCollateral[cfor][_collateralAddress] -= _amount;
+        if (s_senderToCollateral[cfor][_collateralAddress] <= _amount) {
+            s_senderToCollateral[cfor][_collateralAddress] = 0;
+        } else {
+            s_senderToCollateral[cfor][_collateralAddress] -= _amount;
+        }
         bool success = IERC20(_collateralAddress).transfer(to, _amount);
         require(success, "Couldnt Transfer Collateral Back");
     }
 
     function burnTokens(address _user, uint256 _amount) public {
         deficoin.burn(_user, _amount);
-        s_mintedDefi[_user] -= _amount;
+        if (s_mintedDefi[_user] <= _amount) {
+            s_mintedDefi[_user] = 0;
+        } else {
+            s_mintedDefi[_user] -= _amount;
+        }
     }
 
     function getMarketPriceOfToken(
@@ -146,10 +156,12 @@ contract Market {
     function calculateHealthFactor(
         address _user
     ) public view returns (uint256) {
-        uint256 totalCollateral = calculateTotalCollateralInUSD(_user);
-        uint256 collateral = calculateMaxAmountToMint(totalCollateral);
-        uint256 healthFactor = collateral / s_mintedDefi[_user];
-        return healthFactor;
+        uint256 collateralUsd = calculateTotalCollateralInUSD(_user);
+        uint256 debt = s_mintedDefi[_user];
+        uint256 liquidationThreshold = 80;
+        uint256 adjustedCollateral = (collateralUsd * liquidationThreshold) /
+            100;
+        return adjustedCollateral / debt;
     }
 
     function calculateTotalCollateralInUSD(
@@ -168,22 +180,25 @@ contract Market {
         address _toLiquidate,
         address _collateralAddress,
         uint256 _debtToCover
-    ) public {
+    ) public _isMoreThanZero(_debtToCover) {
         uint256 healthFactor = calculateHealthFactor(_toLiquidate);
-        require(healthFactor < 1, "Cant Liquidate Healthy User");
-        uint256 _amount = _debtToCover.ConvertToUsdt(_collateralAddress);
-        uint256 bonus = ((((_amount / DIVISOR)) / (PERCENT)) * _amount);
+        console.log(_debtToCover, "Devt to cover");
+        require(healthFactor <= 1, "HF Should be Less than Zero");
+        uint256 _amount = _debtToCover.getPriceInUSD(
+            s_tokenToPriceFeed[_collateralAddress]
+        );
+        console.log("amount ", _amount);
+        uint256 _adjusted = (_amount * 1e18) / _debtToCover;
+        console.log("amount ", _adjusted);
+        uint256 bonus = (((_adjusted) * 2) / PERCENT);
+        console.log(bonus + _adjusted, "adjusted");
+
         redeemCollateral(
             _toLiquidate,
             msg.sender,
-            _amount + bonus,
+            bonus + _adjusted,
             _collateralAddress
         );
-        burnTokens(_toLiquidate, s_mintedDefi[_toLiquidate]);
-
-        require(
-            healthFactor > 1,
-            "Liquidation doesnt improve the health factor"
-        );
+        burnTokens(_toLiquidate, _debtToCover / 1e18);
     }
 }

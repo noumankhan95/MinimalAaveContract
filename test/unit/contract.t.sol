@@ -10,6 +10,7 @@ import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.so
 import {WethMock} from "test/mocks/WethMock.sol";
 import {WbtcMock} from "test/mocks/WbtcMock.sol";
 import {console} from "forge-std/console.sol";
+import {MockV3Aggregator} from "lib/chainlink-brownie-contracts/contracts/src/v0.8/tests/MockV3Aggregator.sol";
 
 contract MarketTest is Test {
     Market market;
@@ -55,7 +56,8 @@ contract MarketTest is Test {
         market.DepositCollateralAndMintTokens(
             config.WethAddress,
             2e18,
-            config.WethpriceFeed
+            config.WethpriceFeed,
+            2e18
         );
         assert(coin.balanceOf(user) > 0);
     }
@@ -66,10 +68,50 @@ contract MarketTest is Test {
         market.DepositCollateralAndMintTokens(
             config.WethAddress,
             2e18,
-            config.WethpriceFeed
+            config.WethpriceFeed,
+            2e18
         );
         assert(market.calculateHealthFactor(user) == 1);
     }
 
-    function testLiquidationWorks() public {}
+    function testLiquidationWorks() public {
+        vm.startPrank(user);
+        IERC20(config.WethAddress).approve(address(market), 2e18);
+        market.DepositCollateralAndMintTokens(
+            config.WethAddress,
+            2e18,
+            config.WethpriceFeed,
+            2e18
+        );
+
+        MockV3Aggregator(config.WethpriceFeed).updateAnswer(2000e18);
+        vm.warp(block.timestamp + 1);
+
+        vm.stopPrank();
+        address liquidator = makeAddr("liquidator");
+        WethMock(config.WethAddress).mint(liquidator, 2000e18);
+        vm.startPrank(liquidator);
+        IERC20(config.WethAddress).approve(address(market), 10e18);
+
+        market.DepositCollateralAndMintTokens(
+            config.WethAddress,
+            10e18,
+            config.WethpriceFeed,
+            2e18
+        );
+
+        console.log(
+            IERC20(config.WethAddress).balanceOf(liquidator),
+            " Before "
+        );
+
+        market.liquidate(
+            user,
+            config.WethAddress,
+            IERC20(coin).balanceOf(user)
+        );
+        console.log(IERC20(config.WethAddress).balanceOf(liquidator), " After");
+
+        vm.stopPrank();
+    }
 }
