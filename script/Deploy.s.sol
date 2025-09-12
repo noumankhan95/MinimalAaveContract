@@ -26,11 +26,13 @@ contract Deploy is Script {
     {
         hconfig = new HelperConfig();
         config = hconfig.getChainConfig(block.chainid);
+        vm.startBroadcast(config.account);
         DefiCoin defiCoin = new DefiCoin();
         priceFeeds = [config.WethpriceFeed, config.WbtcpriceFeed];
         tokenaddresses = [config.WethAddress, config.WbtcAddress];
         market = new Market(priceFeeds, tokenaddresses, defiCoin);
         defiCoin.transferOwnership(address(market));
+        vm.stopBroadcast();
         return (market, config, priceFeeds, tokenaddresses, defiCoin);
     }
 }

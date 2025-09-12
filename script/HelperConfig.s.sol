@@ -59,6 +59,7 @@ contract HelperConfig is Script {
     }
 
     function getAnvilEthConfig() internal returns (NetworkConfig memory) {
+        vm.startBroadcast(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
         MockV3AggregatorTest wethaggregator = new MockV3AggregatorTest(
             10,
             3000e10
@@ -69,6 +70,9 @@ contract HelperConfig is Script {
         );
         WethMock weth = new WethMock();
         WbtcMock wbtc = new WbtcMock();
+        weth.mint(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266,20e18);
+        wbtc.mint(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266,20e18);
+        vm.stopBroadcast();
         return
             NetworkConfig({
                 WbtcAddress: address(wbtc),
