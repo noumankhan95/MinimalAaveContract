@@ -72,7 +72,7 @@ contract Market {
         uint256 _toMint
     ) public payable _isMoreThanZero(_amount) {
         depositCollateral(_amount, msg.sender, _tokenCollateral);
-        MintTokens(_toMint, msg.sender, _tokenCollateral, _priceFeed);
+        MintTokens(_amount, msg.sender, _tokenCollateral, _priceFeed);
     }
 
     function depositCollateral(
@@ -100,9 +100,9 @@ contract Market {
             _priceFeed,
             _amount
         );
-
-        uint256 toMint = calculateMaxAmountToMint(usdValue);
-
+        console.log(usdValue, "USD value");
+        uint256 toMint = calculateMaxAmountToMint(usdValue) * 1e18;
+        console.log(toMint, "to mint");
         s_mintedDefi[sender] += toMint;
         deficoin.mint(sender, toMint);
     }
@@ -161,7 +161,7 @@ contract Market {
         address _user
     ) public view returns (uint256) {
         uint256 collateralUsd = calculateTotalCollateralInUSD(_user);
-        uint256 debt = s_mintedDefi[_user];
+        uint256 debt = s_mintedDefi[_user] / 1e18;
         uint256 liquidationThreshold = 80;
         uint256 adjustedCollateral = (collateralUsd * liquidationThreshold) /
             100;
@@ -186,7 +186,7 @@ contract Market {
         uint256 _debtToCover
     ) public _isMoreThanZero(_debtToCover) {
         uint256 healthFactor = calculateHealthFactor(_toLiquidate);
-        console.log(healthFactor / 1e18, "Devt to cover");
+        console.log(healthFactor, "Devt to cover");
         require(
             healthFactor / 1e18 <= 1,
             "HF Should be Less than Zero To Liquidate"
@@ -195,10 +195,11 @@ contract Market {
             s_tokenToPriceFeed[_collateralAddress]
         );
         console.log("amount now", _amount);
-        uint256 _adjusted = (_amount) / _debtToCover;
+        uint256 _adjusted = ((_amount) * 1e18) / _debtToCover;
         console.log("amount ", _adjusted);
         uint256 liquidationBonus = 105; // 105% = 5% bonus
-        uint256 collateralToSeize = (_debtToCover * liquidationBonus) / 100;
+        uint256 collateralToSeize = ((_debtToCover / 1e18) * liquidationBonus) /
+            100;
         redeemCollateral(
             _toLiquidate,
             msg.sender,

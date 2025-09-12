@@ -53,13 +53,14 @@ contract MarketTest is Test {
 
     function testDepositCollateralWorks() public {
         vm.startPrank(user);
-        IERC20(config.WethAddress).approve(address(market), 2e18);
+        IERC20(config.WethAddress).approve(address(market), 5e18);
         market.DepositCollateralAndMintTokens(
             config.WethAddress,
-            2e18,
+            5e18,
             config.WethpriceFeed,
             2e18
         );
+          console.log(market.calculateHealthFactor(user), "Health Factor");
         assert(coin.balanceOf(user) > 0);
     }
 
