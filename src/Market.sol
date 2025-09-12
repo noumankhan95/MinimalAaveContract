@@ -95,12 +95,14 @@ contract Market {
         address _tokenCollateral,
         address _priceFeed
     ) internal {
-        uint256 _price = getMarketPriceOfToken(
+        uint256 usdValue = getMarketPriceOfToken(
             _tokenCollateral,
             _priceFeed,
             _amount
         );
-        uint256 toMint = calculateMaxAmountToMint(_price);
+
+        uint256 toMint = calculateMaxAmountToMint(usdValue);
+
         s_mintedDefi[sender] += toMint;
         deficoin.mint(sender, toMint);
     }
@@ -144,13 +146,15 @@ contract Market {
         address _priceFeedAddress,
         uint256 _amount
     ) public view returns (uint256) {
-        return _amount.ConvertToUsdt(_priceFeedAddress);
+        uint256 amount = _amount.ConvertToUsdt(_priceFeedAddress);
+        console.log(amount);
+        return amount;
     }
 
     function calculateMaxAmountToMint(
         uint256 _amount
     ) public pure returns (uint256) {
-        return (((_amount / DIVISOR) * LTV) / PERCENT) * 1e18;
+        return (((_amount / DIVISOR) * LTV) / PERCENT);
     }
 
     function calculateHealthFactor(
@@ -182,23 +186,25 @@ contract Market {
         uint256 _debtToCover
     ) public _isMoreThanZero(_debtToCover) {
         uint256 healthFactor = calculateHealthFactor(_toLiquidate);
-        console.log(_debtToCover, "Devt to cover");
-        require(healthFactor <= 1, "HF Should be More than Zero");
-        uint256 _amount = _debtToCover.getPriceInUSD(
+        console.log(healthFactor / 1e18, "Devt to cover");
+        require(
+            healthFactor / 1e18 <= 1,
+            "HF Should be Less than Zero To Liquidate"
+        );
+        uint256 _amount = _debtToCover.ConvertToUsdt(
             s_tokenToPriceFeed[_collateralAddress]
         );
-        console.log("amount ", _amount);
-        uint256 _adjusted = (_amount * 1e18) / _debtToCover;
+        console.log("amount now", _amount);
+        uint256 _adjusted = (_amount) / _debtToCover;
         console.log("amount ", _adjusted);
-        uint256 bonus = (((_adjusted) * 2) / PERCENT);
-        console.log(bonus + _adjusted, "adjusted");
-
+        uint256 liquidationBonus = 105; // 105% = 5% bonus
+        uint256 collateralToSeize = (_debtToCover * liquidationBonus) / 100;
         redeemCollateral(
             _toLiquidate,
             msg.sender,
-            bonus + _adjusted,
+            collateralToSeize,
             _collateralAddress
         );
-        burnTokens(_toLiquidate, _debtToCover / 1e18);
+        burnTokens(_toLiquidate, _debtToCover);
     }
 }
